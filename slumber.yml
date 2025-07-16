@@ -1,0 +1,51 @@
+# TODO include link to slumber schema file
+
+.base_profile_data: &base_profile_data
+  fish_id: >
+    {{ response('list_fish', trigger='no_history')
+      | jsonpath('$[*].id', mode='array')
+      | select() }}"
+
+profiles:
+  local:
+    name: Local
+    data:
+      <<: *base_profile_data
+      host: http://localhost:3000
+  remote:
+    name: Remote
+    data:
+      <<: *base_profile_data
+      host: https://shoal.lucaspickering.me
+
+requests:
+  list_fish:
+    type: request
+    name: List Fish
+    method: GET
+    url: "{{ host }}/fish"
+  get_fish:
+    type: request
+    name: Get Fish
+    method: GET
+    url: "{{ host }}/fish/{{ fish_id }}"
+  get_fish_pic:
+    type: request
+    name: Get Profile Pic
+    method: GET
+    url: "{{ host }}/fish/{{ fish_id }}/profile-picture"
+  create_fish:
+    type: request
+    name: Create Fish
+    method: POST
+    url: "{{ host }}/fish/{{ fish_id }}"
+  update_fish:
+    type: request
+    name: Update Fish
+    method: PATCH
+    url: "{{ host }}/fish/{{ fish_id }}"
+  delete_fish:
+    type: request
+    name: Delete Fish
+    method: DELETE
+    url: "{{ host }}/fish/{{ fish_id }}"

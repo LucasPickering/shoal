@@ -5,7 +5,7 @@ mod data;
 mod routes;
 
 use crate::data::Fish;
-use axum::{Router, routing::get};
+use axum::{Router, response::Redirect, routing::get};
 use routes::*;
 use std::{env, io};
 use utoipa::OpenApi;
@@ -16,10 +16,11 @@ async fn main() -> Result<(), io::Error> {
     // Build our application with routes
     let app = Router::new()
         .merge(
-            SwaggerUi::new("/")
+            SwaggerUi::new("/docs")
                 .url("/api-docs/openapi.json", ApiDoc::openapi()),
         )
-        .route("/fish", get(get_all_fish).post(create_fish))
+        .route("/", get(|| async { Redirect::permanent("/docs") }))
+        .route("/fish", get(list_fish).post(create_fish))
         .route(
             "/fish/:id",
             get(get_fish_by_id).put(update_fish).delete(delete_fish),
@@ -35,23 +36,13 @@ async fn main() -> Result<(), io::Error> {
 /// OpenAPI documentation
 #[derive(OpenApi)]
 #[openapi(
-    paths(
-        get_all_fish,
-        get_fish_by_id,
-        create_fish,
-        update_fish,
-        delete_fish,
-    ),
-    components(
-        schemas(Fish, CreateFishRequest, UpdateFishRequest, ErrorResponse)
-    ),
-    tags(
-        (name = "fish", description = "Fish management endpoints"),
-    ),
-    info(
-        title = "Shoal API",
-        description = "TODO",
-        version = "0.1.0"
-    )
+    paths(list_fish, get_fish_by_id, create_fish, update_fish, delete_fish,),
+    components(schemas(
+        Fish,
+        CreateFishRequest,
+        UpdateFishRequest,
+        ErrorResponse
+    )),
+    info(title = "Shoal API", description = "TODO", version = "0.1.0")
 )]
 struct ApiDoc;

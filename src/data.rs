@@ -19,6 +19,20 @@ pub static FISHES: LazyLock<IndexMap<FishId, Fish>> = LazyLock::new(|| {
             age: 5,
             weight_kg: 0.3,
         },
+        Fish {
+            id: FishId(3),
+            name: "Sam".to_string(),
+            species: "Sockeye Salmon".to_string(),
+            age: 5,
+            weight_kg: 5.2,
+        },
+        Fish {
+            id: FishId(4),
+            name: "Barry".to_string(),
+            species: "Great Barracuda".to_string(),
+            age: 11,
+            weight_kg: 8.3,
+        },
     ]
     .into_iter()
     .map(|fish| (fish.id, fish))

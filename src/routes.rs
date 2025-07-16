@@ -35,7 +35,7 @@ pub struct ErrorResponse {
     ),
     tag = "fish"
 )]
-pub async fn get_all_fish() -> Json<Vec<Fish>> {
+pub async fn list_fish() -> Json<Vec<Fish>> {
     Json(FISHES.values().cloned().collect())
 }
 
