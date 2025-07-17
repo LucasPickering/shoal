@@ -1,8 +1,103 @@
-use crate::data::{FISHES, Fish, FishId};
+use crate::data::{Fish, FishId, Store};
 use axum::{Json, extract::Path, http::StatusCode};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+// Handler functions
+#[utoipa::path(
+    get,
+    path = "/fish",
+    responses(
+        (status = 200, description = "List of all fish", body = Vec<Fish>)
+    ),
+    tag = "fish"
+)]
+pub async fn list_fish() -> Json<Vec<&'static Fish>> {
+    Json(Store::all().collect())
+}
+
+#[utoipa::path(
+    get,
+    path = "/fish/{id}",
+    responses(
+        (status = 200, description = "Fish found", body = ApiResponse<Fish>),
+        (status = 404, description = "Fish not found", body = ErrorResponse)
+    ),
+    params(
+        ("id" = FishId, Path, description = "Fish ID")
+    ),
+    tag = "fish"
+)]
+pub async fn get_fish_by_id(
+    Path(id): Path<FishId>,
+) -> Result<Json<&'static Fish>, (StatusCode, Json<ErrorDetail>)> {
+    Store::get_or_404(id).map(Json)
+}
+
+#[utoipa::path(
+    post,
+    path = "/fish",
+    request_body = CreateFishRequest,
+    responses(
+        (status = 201, description = "Fish created successfully", body = ApiResponse<Fish>)
+    ),
+    tag = "fish"
+)]
+pub async fn create_fish(Json(body): Json<CreateFishRequest>) -> Json<Fish> {
+    Json(Fish {
+        id: Store::next_id(),
+        name: body.name,
+        species: body.species,
+        age: body.age,
+        weight_kg: body.weight_kg,
+    })
+}
+
+#[utoipa::path(
+    patch,
+    path = "/fish/{id}",
+    request_body = UpdateFishRequest,
+    responses(
+        (status = 200, description = "Fish updated successfully", body = ApiResponse<Fish>),
+        (status = 404, description = "Fish not found", body = ErrorResponse)
+    ),
+    params(
+        ("id" = u32, Path, description = "Fish ID")
+    ),
+    tag = "fish"
+)]
+pub async fn update_fish(
+    Path(id): Path<FishId>,
+    Json(body): Json<UpdateFishRequest>,
+) -> Result<Json<Fish>, (StatusCode, Json<ErrorDetail>)> {
+    let fish = Store::get_or_404(id)?;
+    Ok(Json(Fish {
+        id,
+        name: body.name.unwrap_or_else(|| fish.name.clone()),
+        species: body.species.unwrap_or_else(|| fish.species.clone()),
+        age: body.age.unwrap_or(fish.age),
+        weight_kg: body.weight_kg.unwrap_or(fish.weight_kg),
+    }))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/fish/{id}",
+    responses(
+        (status = 200, description = "Fish deleted successfully", body = ApiResponse<Fish>),
+        (status = 404, description = "Fish not found", body = ErrorResponse)
+    ),
+    params(
+        ("id" = u32, Path, description = "Fish ID")
+    ),
+    tag = "fish"
+)]
+pub async fn delete_fish(
+    Path(id): Path<FishId>,
+) -> Result<Json<&'static Fish>, (StatusCode, Json<ErrorDetail>)> {
+    // Return the "deleted" fish
+    Store::get_or_404(id).map(Json)
+}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateFishRequest {
@@ -21,105 +116,18 @@ pub struct UpdateFishRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct ErrorResponse {
-    success: bool,
+pub struct ErrorDetail {
     message: String,
 }
 
-// Handler functions
-#[utoipa::path(
-    get,
-    path = "/fish",
-    responses(
-        (status = 200, description = "List of all fish", body = Vec<Fish>)
-    ),
-    tag = "fish"
-)]
-pub async fn list_fish() -> Json<Vec<Fish>> {
-    Json(FISHES.values().cloned().collect())
-}
-
-#[utoipa::path(
-    get,
-    path = "/fish/{id}",
-    responses(
-        (status = 200, description = "Fish found", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
-    ),
-    params(
-        ("id" = FishId, Path, description = "Fish ID")
-    ),
-    tag = "fish"
-)]
-pub async fn get_fish_by_id(
-    Path(id): Path<FishId>,
-) -> Result<Json<&'static Fish>, (StatusCode, Json<ErrorResponse>)> {
-    match FISHES.get(&id) {
-        Some(fish) => Ok(Json(fish)),
-        None => Err((
+impl ErrorDetail {
+    /// Get a 404 response for an unknown fish ID
+    pub fn not_found(id: FishId) -> (StatusCode, Json<Self>) {
+        (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                success: false,
-                message: format!("Fish with ID {} not found", id),
+            Json(Self {
+                message: format!("No fish with ID {id}"),
             }),
-        )),
+        )
     }
-}
-
-#[utoipa::path(
-    post,
-    path = "/fish",
-    request_body = CreateFishRequest,
-    responses(
-        (status = 201, description = "Fish created successfully", body = ApiResponse<Fish>)
-    ),
-    tag = "fish"
-)]
-pub async fn create_fish(Json(body): Json<CreateFishRequest>) -> Json<Fish> {
-    let id = FishId(rand::rng().random());
-    Json(Fish {
-        id,
-        name: body.name,
-        species: body.species,
-        age: body.age,
-        weight_kg: body.weight_kg,
-    })
-}
-
-#[utoipa::path(
-    put,
-    path = "/fish/{id}",
-    request_body = UpdateFishRequest,
-    responses(
-        (status = 200, description = "Fish updated successfully", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
-    ),
-    params(
-        ("id" = u32, Path, description = "Fish ID")
-    ),
-    tag = "fish"
-)]
-pub async fn update_fish(
-    Path(id): Path<FishId>,
-    Json(body): Json<UpdateFishRequest>,
-) -> Result<Json<Fish>, (StatusCode, Json<ErrorResponse>)> {
-    todo!()
-}
-
-#[utoipa::path(
-    delete,
-    path = "/fish/{id}",
-    responses(
-        (status = 200, description = "Fish deleted successfully", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
-    ),
-    params(
-        ("id" = u32, Path, description = "Fish ID")
-    ),
-    tag = "fish"
-)]
-pub async fn delete_fish(
-    Path(id): Path<FishId>,
-) -> Result<Json<Fish>, (StatusCode, Json<ErrorResponse>)> {
-    todo!()
 }

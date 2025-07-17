@@ -23,7 +23,7 @@ async fn main() -> Result<(), io::Error> {
         .route("/fish", get(list_fish).post(create_fish))
         .route(
             "/fish/:id",
-            get(get_fish_by_id).put(update_fish).delete(delete_fish),
+            get(get_fish_by_id).patch(update_fish).delete(delete_fish),
         );
 
     // Run the server
@@ -41,7 +41,7 @@ async fn main() -> Result<(), io::Error> {
         Fish,
         CreateFishRequest,
         UpdateFishRequest,
-        ErrorResponse
+        ErrorDetail
     )),
     info(title = "Shoal API", description = "TODO", version = "0.1.0")
 )]

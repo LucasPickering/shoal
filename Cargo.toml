@@ -8,14 +8,10 @@ license = "MIT"
 name = "shoal"
 repository = "https://github.com/LucasPickering/shoal"
 version = "0.1.0"
-# Keep in sync w/ rust-toolchain.toml
-rust-version = "1.86.0"
 
 [dependencies]
 axum = "0.7"
-derive_more = {version = "2.0.1", default-features = false, features = ["display"]}
 indexmap = "2.10.0"
-rand = {version = "0.9.1", default-features = false, features = ["thread_rng"]}
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 tokio = {version = "1.0", features = ["full"]}
