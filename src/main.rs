@@ -22,7 +22,7 @@ async fn main() -> Result<(), io::Error> {
         .route("/", get(|| async { Redirect::permanent("/docs") }))
         .route("/fish", get(list_fish).post(create_fish))
         .route(
-            "/fish/:id",
+            "/fish/{id}",
             get(get_fish_by_id).patch(update_fish).delete(delete_fish),
         );
 

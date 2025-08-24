@@ -20,8 +20,8 @@ pub async fn list_fish() -> Json<Vec<&'static Fish>> {
     get,
     path = "/fish/{id}",
     responses(
-        (status = 200, description = "Fish found", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
+        (status = 200, description = "Fish found", body = Fish),
+        (status = 404, description = "Fish not found")
     ),
     params(
         ("id" = FishId, Path, description = "Fish ID")
@@ -39,7 +39,7 @@ pub async fn get_fish_by_id(
     path = "/fish",
     request_body = CreateFishRequest,
     responses(
-        (status = 201, description = "Fish created successfully", body = ApiResponse<Fish>)
+        (status = 201, description = "Fish created successfully", body = Fish)
     ),
     tag = "fish"
 )]
@@ -58,8 +58,8 @@ pub async fn create_fish(Json(body): Json<CreateFishRequest>) -> Json<Fish> {
     path = "/fish/{id}",
     request_body = UpdateFishRequest,
     responses(
-        (status = 200, description = "Fish updated successfully", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
+        (status = 200, description = "Fish updated successfully", body = Fish),
+        (status = 404, description = "Fish not found")
     ),
     params(
         ("id" = u32, Path, description = "Fish ID")
@@ -84,8 +84,8 @@ pub async fn update_fish(
     delete,
     path = "/fish/{id}",
     responses(
-        (status = 200, description = "Fish deleted successfully", body = ApiResponse<Fish>),
-        (status = 404, description = "Fish not found", body = ErrorResponse)
+        (status = 200, description = "Fish deleted successfully", body = Fish),
+        (status = 404, description = "Fish not found")
     ),
     params(
         ("id" = u32, Path, description = "Fish ID")
