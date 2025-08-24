@@ -5,7 +5,11 @@ mod data;
 mod routes;
 
 use crate::data::Fish;
-use axum::{Router, response::Redirect, routing::get};
+use axum::{
+    Router,
+    response::Redirect,
+    routing::{any, get},
+};
 use routes::*;
 use std::{env, io};
 use utoipa::OpenApi;
@@ -24,7 +28,9 @@ async fn main() -> Result<(), io::Error> {
         .route(
             "/fish/{id}",
             get(get_fish_by_id).patch(update_fish).delete(delete_fish),
-        );
+        )
+        .route("/anything", any(anything))
+        .route("/anything/{*path}", any(anything));
 
     // Run the server
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1:3000".into());
