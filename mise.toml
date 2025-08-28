@@ -1,0 +1,3 @@
+[tasks.dev]
+run = "cargo run"
+sources = ["Cargo.toml", "Cargo.lock", "src/**"]

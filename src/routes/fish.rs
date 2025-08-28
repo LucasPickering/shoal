@@ -1,12 +1,17 @@
 //! Fish-related routes
 
-use crate::{
-    data::{Fish, FishId, Store},
-    routes::ErrorDetail,
-};
-use axum::{Json, extract::Path, http::StatusCode};
+use crate::data::{Fish, FishId, SessionId, SessionStore, Store};
+use axum::{Extension, Json, extract::Path};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+/// TODO docs
+pub async fn login(
+    Extension(store): Extension<Store>,
+) -> crate::Result<Json<LoginResponse>> {
+    let response = store.create_session().await?;
+    Ok(Json(response))
+}
 
 #[utoipa::path(
     get,
@@ -16,8 +21,8 @@ use utoipa::ToSchema;
     ),
     tag = "fish"
 )]
-pub async fn list_fish() -> Json<Vec<&'static Fish>> {
-    Json(Store::all().collect())
+pub async fn list_fish(store: SessionStore) -> crate::Result<Json<Vec<Fish>>> {
+    store.list().await.map(Json)
 }
 
 #[utoipa::path(
@@ -33,9 +38,10 @@ pub async fn list_fish() -> Json<Vec<&'static Fish>> {
     tag = "fish"
 )]
 pub async fn get_fish_by_id(
+    store: SessionStore,
     Path(id): Path<FishId>,
-) -> Result<Json<&'static Fish>, (StatusCode, Json<ErrorDetail>)> {
-    Store::get_or_404(id).map(Json)
+) -> crate::Result<Json<Fish>> {
+    store.get(id).await.map(Json)
 }
 
 #[utoipa::path(
@@ -47,14 +53,11 @@ pub async fn get_fish_by_id(
     ),
     tag = "fish"
 )]
-pub async fn create_fish(Json(body): Json<CreateFishRequest>) -> Json<Fish> {
-    Json(Fish {
-        id: Store::next_id(),
-        name: body.name,
-        species: body.species,
-        age: body.age,
-        weight_kg: body.weight_kg,
-    })
+pub async fn create_fish(
+    store: SessionStore,
+    Json(body): Json<CreateFishRequest>,
+) -> crate::Result<Json<Fish>> {
+    store.create(body).await.map(Json)
 }
 
 #[utoipa::path(
@@ -71,17 +74,11 @@ pub async fn create_fish(Json(body): Json<CreateFishRequest>) -> Json<Fish> {
     tag = "fish"
 )]
 pub async fn update_fish(
+    store: SessionStore,
     Path(id): Path<FishId>,
     Json(body): Json<UpdateFishRequest>,
-) -> Result<Json<Fish>, (StatusCode, Json<ErrorDetail>)> {
-    let fish = Store::get_or_404(id)?;
-    Ok(Json(Fish {
-        id,
-        name: body.name.unwrap_or_else(|| fish.name.clone()),
-        species: body.species.unwrap_or_else(|| fish.species.clone()),
-        age: body.age.unwrap_or(fish.age),
-        weight_kg: body.weight_kg.unwrap_or(fish.weight_kg),
-    }))
+) -> crate::Result<Json<Fish>> {
+    store.update(id, body).await.map(Json)
 }
 
 #[utoipa::path(
@@ -97,24 +94,31 @@ pub async fn update_fish(
     tag = "fish"
 )]
 pub async fn delete_fish(
+    store: SessionStore,
     Path(id): Path<FishId>,
-) -> Result<Json<&'static Fish>, (StatusCode, Json<ErrorDetail>)> {
-    // Return the "deleted" fish
-    Store::get_or_404(id).map(Json)
+) -> crate::Result<Json<Fish>> {
+    store.delete(id).await.map(Json)
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateFishRequest {
-    name: String,
-    species: String,
-    age: u32,
-    weight_kg: f64,
+    pub name: String,
+    pub species: String,
+    pub age: u32,
+    pub weight_kg: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UpdateFishRequest {
-    name: Option<String>,
-    species: Option<String>,
-    age: Option<u32>,
-    weight_kg: Option<f64>,
+    pub name: Option<String>,
+    pub species: Option<String>,
+    pub age: Option<u32>,
+    pub weight_kg: Option<f64>,
+}
+
+/// Response for /login
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LoginResponse {
+    pub id: SessionId,
+    pub expires_at: String,
 }
