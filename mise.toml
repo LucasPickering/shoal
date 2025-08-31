@@ -1,3 +1,26 @@
+[env]
+DEPLOY_DIR = "/shoal"
+DEPLOY_TARGET = "x86_64-unknown-linux-gnu"
+_.file = ".env"
+
 [tasks.dev]
+description = "Run development server"
 run = "cargo run"
 sources = ["Cargo.toml", "Cargo.lock", "src/**"]
+
+[tasks.build]
+description = "Build and push Docker image"
+run = [
+    "docker buildx bake",
+    "docker login ghcr.io",
+    "docker-compose push",
+]
+
+[tasks.deploy]
+depends = ["build"]
+description = "Build release Docker image and deploy it to the server"
+env.DOCKER_HOST = "ssh://{{env.DEPLOY_HOST}}"
+run = [
+    "docker-compose pull",
+    "docker-compose up -d",
+]

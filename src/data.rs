@@ -132,13 +132,6 @@ impl Store {
 
         Ok(LoginResponse { id, expires_at })
     }
-
-    /// Trigger backup safe to the backup file
-    pub async fn backup(&self) -> crate::Result<()> {
-        let conn = self.connection.lock().await;
-        conn.backup("main", "db.sqlite", None)?;
-        Ok(())
-    }
 }
 
 /// A [Store] filtered to a single session's fish. This can be automatically

@@ -46,7 +46,6 @@ async fn main() -> crate::Result<()> {
         )
         .route("/anything", any(anything))
         .route("/anything/{*path}", any(anything))
-        .route("/backup", post(backup))
         .layer(Extension(store))
         .layer(TraceLayer::new_for_http());
 

@@ -1,6 +1,5 @@
-use crate::data::Store;
 use axum::{
-    Extension, Json,
+    Json,
     extract::{OriginalUri, Query},
     http::{HeaderMap, Method},
 };
@@ -8,15 +7,6 @@ use bytes::Bytes;
 use indexmap::{IndexMap, map::Entry};
 use serde::Serialize;
 use std::mem;
-
-/// Trigger database backup for local testing
-#[cfg(debug_assertions)]
-pub async fn backup(
-    Extension(store): Extension<Store>,
-) -> crate::Result<Json<()>> {
-    store.backup().await?;
-    Ok(Json(()))
-}
 
 /// A route to capture anything at /anything/*. Accepts any request and returns
 /// a JSON body detailing the request, similar to httpbin.

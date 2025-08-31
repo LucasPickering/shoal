@@ -82,11 +82,6 @@ requests:
     method: DELETE
     url: "{{ host }}/fish/{{ fish_id }}"
 
-  backup:
-    name: Backup Database
-    method: POST
-    url: "{{ host }}/backup"
-
   get_image:
     $ref: "#/.authenticated"
     headers:

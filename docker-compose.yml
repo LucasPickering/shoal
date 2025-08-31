@@ -1,0 +1,10 @@
+services:
+  shoal:
+    image: ghcr.io/lucaspickering/shoal:latest
+    build:
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+    ports:
+      - "80:80"

@@ -1,0 +1,5 @@
+# Only include source files
+*
+!Cargo.toml
+!Cargo.lock
+!src/
