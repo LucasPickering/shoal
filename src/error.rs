@@ -12,40 +12,47 @@ use utoipa::ToSchema;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Any error that can occur within the service
-/// TODO thiserror
 #[derive(Debug, Error)]
 pub enum Error {
-    /// TODO
+    /// I/O error transmitting on the network
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    /// TODO
+    /// User requested a resource that doesn't exist
     #[error("Not found")]
     NotFound,
 
-    /// TODO
+    /// User submitted a session ID that's either invalid or no longer in the
+    /// DB
+    #[error("Session `{}` not found", String::from_utf8_lossy(.session_id))]
+    SessionNotFound {
+        /// Requested session ID. Session ID is specified by header value which
+        /// may not be UTF-8, so this stores the bytes and converts lossily at
+        /// display time
+        session_id: Vec<u8>,
+    },
+
+    /// Error accessing the DB
     #[error(transparent)]
     Sqlite(rusqlite::Error),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        // TODO pack errors into JSON
-        // TODO log errors
         let (status_code, detail) = match self {
-            Self::NotFound => (StatusCode::NOT_FOUND, "Not found"),
+            Self::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
+            Self::SessionNotFound { .. } => {
+                (StatusCode::BAD_REQUEST, self.to_string())
+            }
             Self::Io(_) | Self::Sqlite(_) => {
                 error!("Internal server error: {self}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_owned(),
+                )
             }
         };
-        (
-            status_code,
-            Json(ErrorDetail {
-                detail: detail.into(),
-            }),
-        )
-            .into_response()
+        (status_code, Json(ErrorDetail { detail })).into_response()
     }
 }
 
@@ -59,7 +66,7 @@ impl From<rusqlite::Error> for Error {
     }
 }
 
-/// TODO
+/// Body for error responses
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ErrorDetail {
     detail: String,

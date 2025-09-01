@@ -8,6 +8,7 @@ use axum::{
     http::request::Parts,
     response::{IntoResponse, Response},
 };
+use jiff::Timestamp;
 use rusqlite::{
     Connection, Row, ToSql, named_params,
     types::{FromSql, FromSqlResult, ToSqlOutput, ValueRef},
@@ -17,12 +18,11 @@ use std::{
     fmt::{self, Display},
     ops::Deref,
     sync::Arc,
+    time::Duration,
 };
 use tokio::sync::Mutex;
 use tracing::info;
 use utoipa::ToSchema;
-
-// TODO auto clean expired sessions
 
 /// User specifies their session ID in this header
 pub const SESSION_ID_HEADER: &str = "Shoal-Session-Id";
@@ -110,7 +110,9 @@ impl Store {
 
     /// Create a new session with a unique ID
     pub async fn create_session(&self) -> crate::Result<LoginResponse> {
-        let expires_at = "".into(); // TODO
+        // Sessions last 1 hour
+        let expires_at =
+            (Timestamp::now() + Duration::from_secs(60 * 60)).to_string();
         let conn = self.connection.lock().await;
         let id = conn
             // Generate an ID in the DB and return it
@@ -132,13 +134,50 @@ impl Store {
 
         Ok(LoginResponse { id, expires_at })
     }
+
+    /// Delete all expired sessions, returning their IDs
+    pub async fn reap_sessions(&self) -> crate::Result<Vec<SessionId>> {
+        let conn = self.connection.lock().await;
+        let deleted: Vec<SessionId> = conn
+            .prepare(
+                "DELETE FROM session WHERE expires_at < :now RETURNING id",
+            )?
+            .query_map(
+                named_params! { ":now": Timestamp::now().to_string() },
+                |row| row.get::<_, SessionId>("id"),
+            )?
+            .collect::<Result<_, _>>()?;
+        Ok(deleted)
+    }
+
+    /// Is the session in the store and unexpired?
+    async fn contains_session(
+        &self,
+        session_id: &SessionId,
+    ) -> crate::Result<bool> {
+        let conn = self.connection.lock().await;
+        let contains = conn
+            .prepare(
+                "SELECT EXISTS (SELECT id FROM session WHERE id = :id
+                AND expires_at > :now)",
+            )?
+            .query_one(
+                named_params! {
+                    ":id": session_id,
+                    ":now": Timestamp::now().to_string(),
+                },
+                |row| row.get::<_, bool>(0),
+            )?;
+        Ok(contains)
+    }
 }
 
 /// A [Store] filtered to a single session's fish. This can be automatically
-/// extracted from a request by pulling the session ID from the `Authorization`
-/// header as a bearer token.
+/// extracted from a request by pulling the session ID from the
+/// `Shoal-Session-ID` header.
 ///
-/// TODO explain more
+/// A session is an isolated view of the database. Each user's session is unique
+/// and will not affect other sessions.
 pub struct SessionStore {
     store: Store,
     /// Session to show/modify fish for. If `None`, use the default fish and
@@ -205,8 +244,27 @@ impl SessionStore {
         id: FishId,
         body: UpdateFishRequest,
     ) -> crate::Result<Fish> {
-        // TODO
-        Err(Error::NotFound)
+        let conn = self.connection().await;
+        let fish = conn.query_one(
+            // If any given field is None, we'll update it to its existing
+            // value. This only works for non-nullable columns
+            "UPDATE fish SET
+                name = coalesce(:name, name),
+                species = coalesce(:species, species),
+                age = coalesce(:age, age),
+                weight_kg = coalesce(:weight_kg, weight_kg)
+            WHERE session_id = :session_id AND id = :id RETURNING *",
+            named_params! {
+                ":session_id": self.session_id,
+                ":id": id,
+                ":name": body.name,
+                ":species": body.species,
+                ":age": body.age,
+                ":weight_kg": body.weight_kg,
+            },
+            |row| row.try_into(),
+        )?;
+        Ok(fish)
     }
 
     /// Delete a fish by ID for this session. Return the deleted fish or `None`
@@ -234,32 +292,49 @@ impl<S: Send + Sync> FromRequestParts<S> for SessionStore {
         parts: &mut Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
-        fn get_session_id(parts: &Parts) -> Result<Option<SessionId>, Error> {
+        async fn get_session_id(
+            parts: &Parts,
+            store: &Store,
+        ) -> Result<Option<SessionId>, Error> {
             // Pull the session ID from the auth header. If the header isn't
             // present, it's just an unauthenticated request.
             let Some(session_id) = &parts.headers.get(SESSION_ID_HEADER) else {
                 return Ok(None);
             };
-            Ok(Some(SessionId(
-                session_id.to_str().expect("TODO").to_owned(),
-            )))
+            // If the session ID isn't valid UTF-8, it's definitely not in the
+            // DB so give a Not Found error
+            let session_id = SessionId(
+                session_id
+                    .to_str()
+                    .map_err(|_| Error::SessionNotFound {
+                        session_id: session_id.as_bytes().to_owned(),
+                    })?
+                    .to_owned(),
+            );
+
+            // Verify the session is in the store
+            if store.contains_session(&session_id).await? {
+                Ok(Some(session_id))
+            } else {
+                Err(Error::SessionNotFound {
+                    session_id: session_id.0.into_bytes(),
+                })
+            }
         }
 
         let Extension(store) = parts
             .extract::<Extension<Store>>()
             .await
             .map_err(IntoResponse::into_response)?;
-        let session_id =
-            get_session_id(parts).map_err(IntoResponse::into_response)?;
-        // TODO validate ID is in DB
-        Ok(Self {
-            store: store.clone(),
-            session_id,
-        })
+        let session_id = get_session_id(parts, &store)
+            .await
+            .map_err(IntoResponse::into_response)?;
+
+        Ok(Self { store, session_id })
     }
 }
 
-/// Unique ID for a user session
+/// Unique ID for a user session, generated by `POST /login`
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(transparent)]
 pub struct SessionId(String);
@@ -277,7 +352,7 @@ impl FromSql for SessionId {
     }
 }
 
-/// TODO
+/// Unique ID for a fish
 #[derive(
     Copy, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize, ToSchema,
 )]
@@ -303,7 +378,7 @@ impl FromSql for FishId {
     }
 }
 
-/// TODO
+/// Just keep swimming swimming swimming...
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct Fish {
     pub id: FishId,

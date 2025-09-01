@@ -5,7 +5,19 @@ use axum::{Extension, Json, extract::Path};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// TODO docs
+/// Create new temporary session
+///
+/// TODO more
+#[utoipa::path(
+    post,
+    path = "/login",
+    responses(
+        (status = 200,
+        description = "Create a new temporary session",
+        body = LoginResponse)
+    ),
+    tag = "fish"
+)]
 pub async fn login(
     Extension(store): Extension<Store>,
 ) -> crate::Result<Json<LoginResponse>> {
@@ -13,11 +25,12 @@ pub async fn login(
     Ok(Json(response))
 }
 
+/// List fish
 #[utoipa::path(
     get,
     path = "/fish",
     responses(
-        (status = 200, description = "List of all fish", body = Vec<Fish>)
+        (status = 200, description = "List of fish", body = Vec<Fish>)
     ),
     tag = "fish"
 )]
@@ -25,6 +38,7 @@ pub async fn list_fish(store: SessionStore) -> crate::Result<Json<Vec<Fish>>> {
     store.list().await.map(Json)
 }
 
+/// Get a fish by ID
 #[utoipa::path(
     get,
     path = "/fish/{id}",
@@ -44,6 +58,10 @@ pub async fn get_fish_by_id(
     store.get(id).await.map(Json)
 }
 
+/// Create a new fish
+///
+/// Requires an active session
+/// TODO document header
 #[utoipa::path(
     post,
     path = "/fish",
@@ -60,6 +78,10 @@ pub async fn create_fish(
     store.create(body).await.map(Json)
 }
 
+/// Update an existing fish
+///
+/// Requires an active session
+/// TODO document header
 #[utoipa::path(
     patch,
     path = "/fish/{id}",
@@ -81,6 +103,10 @@ pub async fn update_fish(
     store.update(id, body).await.map(Json)
 }
 
+/// Delete an existing fish
+///
+/// Requires an active session
+/// TODO document header
 #[utoipa::path(
     delete,
     path = "/fish/{id}",
@@ -100,6 +126,7 @@ pub async fn delete_fish(
     store.delete(id).await.map(Json)
 }
 
+/// Request body for `POST /fish`
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateFishRequest {
     pub name: String,
@@ -108,6 +135,7 @@ pub struct CreateFishRequest {
     pub weight_kg: f64,
 }
 
+/// Request body for `PATCH /fish`
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UpdateFishRequest {
     pub name: Option<String>,
@@ -116,7 +144,7 @@ pub struct UpdateFishRequest {
     pub weight_kg: Option<f64>,
 }
 
-/// Response for /login
+/// Response body for `POST /login`
 #[derive(Debug, Serialize, ToSchema)]
 pub struct LoginResponse {
     pub id: SessionId,

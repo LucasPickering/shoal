@@ -1,7 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/LucasPickering/slumber/refs/heads/4.0/schemas/collection.json
 
 .base_profile_data:
-  fish_id: "{{ response('list_fish', trigger='no_history') | jsonpath('$[*].id') | select() }}"
+  fish_id: "{{ response('list_fish', trigger='no_history')
+    | jsonpath('$[*].id')
+    | select(message='Fish ID') }}"
+  session_id: "{{ response('login') | jsonpath('$.id') }}"
 
 profiles:
   prd:
@@ -9,25 +12,20 @@ profiles:
     data:
       $ref: "#/.base_profile_data"
       host: https://shoal.lucaspickering.me
-  local:
-    name: Local
-    default: true
-    data:
-      $ref: "#/.base_profile_data"
-      host: http://localhost:80
   local_dev:
     name: Local Dev
+    default: true
     data:
       $ref: "#/.base_profile_data"
       host: http://localhost:3000
 
 .authenticated:
   headers:
-    Shoal-Session-Id: "{{ response('new_session') | jsonpath('$.id') }}"
+    Shoal-Session-Id: "{{ session_id }}"
 
 requests:
-  new_session:
-    name: New Session
+  login:
+    name: Login (New Session)
     method: POST
     url: "{{ host }}/login"
 
@@ -72,7 +70,7 @@ requests:
       type: json
       data:
         {
-          "age": "{{ prompt(message='Age', default=3) | int() }}",
+          "age": "{{ prompt(message='Age', default=3) | integer() }}",
           "weight_kg": "{{ prompt(message='Weight (kg)', default='1.5') | float() }}",
         }
 

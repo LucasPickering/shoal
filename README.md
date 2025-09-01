@@ -1,5 +1,5 @@
 # Shoal API
 
-A simple HTTP API for managing fish, built with Rust and Axum.
+**[Website](https://shoal.lucaspickering.me/)**
 
-TODO update
+A simple HTTP API for managing fish, built with Rust and Axum. This is an example API built for testing [slumber](github.com/LucasPickering/slumber). It features temporary sessions that allow you to create, modify, and delete fish in a private sandbox. Sessions expire after 1 hour, so they're intended only for quick testing and examples.

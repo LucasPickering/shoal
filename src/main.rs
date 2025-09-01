@@ -17,8 +17,9 @@ use axum::{
     routing::{any, get, post},
 };
 use routes::*;
-use std::env;
+use std::{env, time::Duration};
 use tower_http::trace::TraceLayer;
+use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -46,8 +47,11 @@ async fn main() -> crate::Result<()> {
         )
         .route("/anything", any(anything))
         .route("/anything/{*path}", any(anything))
-        .layer(Extension(store))
+        .layer(Extension(store.clone()))
         .layer(TraceLayer::new_for_http());
+
+    // Start a background task to reap expired sessions
+    tokio::spawn(reap_sessions(store));
 
     // Run the server
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1:3000".into());
@@ -60,13 +64,38 @@ async fn main() -> crate::Result<()> {
 /// OpenAPI documentation
 #[derive(OpenApi)]
 #[openapi(
-    paths(list_fish, get_fish_by_id, create_fish, update_fish, delete_fish,),
+    paths(
+        login,
+        list_fish,
+        get_fish_by_id,
+        create_fish,
+        update_fish,
+        delete_fish,
+    ),
     components(schemas(
         Fish,
         CreateFishRequest,
         UpdateFishRequest,
         ErrorDetail,
     )),
-    info(title = "Shoal API", description = "TODO", version = "0.1.0")
+    info(
+        title = "Shoal API",
+        description = "Fish-themed example REST API with temporary persistent sessions",
+        version = "0.1.0"
+    )
 )]
 struct ApiDoc;
+
+/// Background task to reap expired sessions
+async fn reap_sessions(store: Store) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        match store.reap_sessions().await {
+            Ok(sessions) => info!(?sessions, "Deleted expired sessions"),
+            Err(error) => tracing::error!(
+                error = &error as &dyn std::error::Error,
+                "Error reaping sessions"
+            ),
+        }
+    }
+}
