@@ -12,8 +12,8 @@ profiles:
     data:
       $ref: "#/.base_profile_data"
       host: https://shoal.lucaspickering.me
-  local_dev:
-    name: Local Dev
+  local:
+    name: Local
     default: true
     data:
       $ref: "#/.base_profile_data"

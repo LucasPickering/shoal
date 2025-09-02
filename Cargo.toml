@@ -13,7 +13,7 @@ version = "0.1.0"
 anyhow = "1.0.99"
 axum = {version = "0.8", features = ["macros"]}
 bytes = "1.10.1"
-indexmap = "2.10.0"
+indexmap = {version = "2.10.0", features = ["serde"]}
 jiff = {version = "0.2.15", default-features = false, features = ["std"]}
 rusqlite = {version = "0.37.0", default-features = false, features = ["bundled"]}
 serde = {version = "1.0", features = ["derive"]}
@@ -23,8 +23,6 @@ tokio = {version = "1.0", features = ["full"]}
 tower-http = {version = "0.6.6", features = ["trace"]}
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.19", default-features = false, features = ["fmt"]}
-utoipa = {version = "5.4", features = ["axum_extras"]}
-utoipa-swagger-ui = {version = "9.0", features = ["axum"]}
 
 [workspace.lints.rust]
 async_fn_in_trait = "allow"

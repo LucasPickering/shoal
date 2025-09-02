@@ -7,7 +7,6 @@ use serde::Serialize;
 use std::io;
 use thiserror::Error;
 use tracing::error;
-use utoipa::ToSchema;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -67,7 +66,7 @@ impl From<rusqlite::Error> for Error {
 }
 
 /// Body for error responses
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct ErrorDetail {
     detail: String,
 }

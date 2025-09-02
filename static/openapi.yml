@@ -1,0 +1,273 @@
+info:
+  contact:
+    name: Lucas Pickering
+    url: https://github.com/LucasPickering/shoal
+  description: Fish-themed example REST API with short-term persistent sessions
+  license:
+    identifier: MIT
+    name: MIT
+  title: Shoal API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /login:
+    post:
+      description: |
+        Create a new temporary session. This session will get an isolated view
+        of the database, allowing you to mutate and query your own private fish
+        collection. Pass the returned session ID as the `Shoal-Session-ID`
+        header in other requests to query and modify your session.
+
+        Sessions are meant to be temporary for short term demonstration and
+        testing. As such, the have a fixed lifetime and cannot be refreshed or
+        copied.
+      operationId: login
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+          description: Created session
+      summary: Create new temporary session
+      tags:
+        - fish
+  /fish:
+    get:
+      operationId: list_fish
+      summary: List fish
+      parameters:
+        - $ref: "#/components/schemas/SessionIdHeaderOptional"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Fish"
+                type: array
+          description: List of fish
+      tags:
+        - fish
+    post:
+      operationId: create_fish
+      summary: Create a new fish
+      parameters:
+        - $ref: "#/components/schemas/SessionIdHeaderRequired"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFishRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fish"
+          description: Fish created successfully
+      tags:
+        - fish
+  /fish/{id}:
+    parameters:
+      - description: Fish ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: "#/components/schemas/FishId"
+    get:
+      operationId: get_fish_by_id
+      summary: Get a fish by ID
+      parameters:
+        - $ref: "#/components/schemas/SessionIdHeaderOptional"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fish"
+          description: Fish found
+        "404":
+          description: Fish not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+      tags:
+        - fish
+    delete:
+      operationId: delete_fish
+      summary: Delete an existing fish
+      parameters:
+        - $ref: "#/components/schemas/SessionIdHeaderRequired"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fish"
+          description: Fish deleted successfully
+        "404":
+          description: Fish not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+      tags:
+        - fish
+    patch:
+      operationId: update_fish
+      summary: Update an existing fish
+      parameters:
+        - $ref: "#/components/schemas/SessionIdHeaderRequired"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFishRequest"
+        required: true
+      responses:
+        "200":
+          description: Fish updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fish"
+        "404":
+          description: Fish not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+      tags:
+        - fish
+components:
+  schemas:
+    CreateFishRequest:
+      description: Request body for `POST /fish`
+      properties:
+        name:
+          type: string
+          example: Barry
+        species:
+          type: string
+          example: Barracuda
+        age:
+          format: int32
+          minimum: 0
+          type: integer
+          example: 3
+        weight_kg:
+          format: double
+          type: number
+          example: 5.5
+      required:
+        - name
+        - species
+        - age
+        - weight_kg
+      type: object
+    UpdateFishRequest:
+      description: |
+        Request body for `PATCH /fish`. Any omitted fields will not be modified.
+      properties:
+        name:
+          type: string
+          example: Barry
+        species:
+          type: string
+          example: Barracuda
+        age:
+          format: int32
+          minimum: 0
+          type: integer
+          example: 3
+        weight_kg:
+          format: double
+          type: number
+          example: 5.5
+      type: object
+    ErrorDetail:
+      description: Body for error responses
+      properties:
+        detail:
+          type: string
+          example: "Error message..."
+      required:
+        - detail
+      type: object
+    Fish:
+      description: Just keep swimming swimming swimming...
+      properties:
+        id:
+          $ref: "#/components/schemas/FishId"
+          example: 4628
+        name:
+          type: string
+          example: Barry
+        species:
+          type: string
+          example: Barracuda
+        age:
+          format: int32
+          minimum: 0
+          type: integer
+          example: 3
+        weight_kg:
+          format: double
+          type: number
+          example: 5.5
+      required:
+        - id
+        - name
+        - species
+        - age
+        - weight_kg
+      type: object
+    FishId:
+      description: Unique ID for a fish
+      format: int32
+      minimum: 0
+      type: integer
+    LoginResponse:
+      description: Response body for `POST /login`
+      properties:
+        id:
+          $ref: "#/components/schemas/SessionId"
+        expires_at:
+          type: string
+          example: 2025-05-05T05:05:05Z
+      required:
+        - id
+        - expires_at
+      type: object
+    SessionId:
+      description: Unique ID for a user session, generated by `POST /login`
+      type: string
+      example: abcdef1234567890
+    SessionIdHeaderOptional:
+      in: header
+      name: Shoal-Session-ID
+      schema:
+        $ref: "#/components/schemas/SessionId"
+      required: false
+      description: |
+        Session in which to perform the fish query. A session ID can be obtained
+        from the `/login` endpoint.
+
+        Specifying the session ID is optional for read requests. If not
+        given, the default read-only session will be queried.
+    SessionIdHeaderRequired:
+      in: header
+      name: Shoal-Session-ID
+      schema:
+        $ref: "#/components/schemas/SessionId"
+      required: true
+      description: |
+        Session in which to perform the modification. A session ID can be
+        obtained from the `/login` endpoint.
+
+        Specifying the session ID is required for mutations, as the default
+        session cannot be modified.

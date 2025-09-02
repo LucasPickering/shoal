@@ -24,3 +24,7 @@ run = [
     "docker-compose pull",
     "docker-compose up -d",
 ]
+
+[tasks.install]
+description = "Install binary locally"
+run = ["cargo install --path ."]

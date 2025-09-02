@@ -7,21 +7,22 @@ mod routes;
 
 pub use crate::error::{Error, Result};
 
-use crate::{
-    data::{Fish, Store},
-    error::ErrorDetail,
-};
+use crate::data::Store;
 use axum::{
     Extension, Router,
-    response::Redirect,
+    body::Body,
+    http::header::CONTENT_TYPE,
+    response::{Html, Redirect, Response},
     routing::{any, get, post},
 };
 use routes::*;
 use std::{env, time::Duration};
 use tower_http::trace::TraceLayer;
 use tracing::info;
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
+
+// Include docs so we can ship as a single binary
+const DOCS_HTML: &[u8] = include_bytes!("../static/docs.html");
+const OPENAPI_YML: &[u8] = include_bytes!("../static/openapi.yml");
 
 #[tokio::main]
 async fn main() -> crate::Result<()> {
@@ -34,11 +35,19 @@ async fn main() -> crate::Result<()> {
 
     // Build our application with routes
     let app = Router::new()
-        .merge(
-            SwaggerUi::new("/docs")
-                .url("/api-docs/openapi.json", ApiDoc::openapi()),
-        )
+        // API docs
         .route("/", get(|| async { Redirect::permanent("/docs") }))
+        .route("/docs", get(|| async { Html(DOCS_HTML) }))
+        .route(
+            "/openapi.yml",
+            get(|| async {
+                Response::builder()
+                    .header(CONTENT_TYPE, "application/yaml")
+                    .body(Body::from(OPENAPI_YML))
+                    .unwrap()
+            }),
+        )
+        // Routes
         .route("/login", post(login))
         .route("/fish", get(list_fish).post(create_fish))
         .route(
@@ -47,6 +56,7 @@ async fn main() -> crate::Result<()> {
         )
         .route("/anything", any(anything))
         .route("/anything/{*path}", any(anything))
+        .fallback(|| async { Error::NotFound })
         .layer(Extension(store.clone()))
         .layer(TraceLayer::new_for_http());
 
@@ -60,31 +70,6 @@ async fn main() -> crate::Result<()> {
     axum::serve(listener, app).await?;
     Ok(())
 }
-
-/// OpenAPI documentation
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        login,
-        list_fish,
-        get_fish_by_id,
-        create_fish,
-        update_fish,
-        delete_fish,
-    ),
-    components(schemas(
-        Fish,
-        CreateFishRequest,
-        UpdateFishRequest,
-        ErrorDetail,
-    )),
-    info(
-        title = "Shoal API",
-        description = "Fish-themed example REST API with temporary persistent sessions",
-        version = "0.1.0"
-    )
-)]
-struct ApiDoc;
 
 /// Background task to reap expired sessions
 async fn reap_sessions(store: Store) {
