@@ -143,6 +143,23 @@ paths:
                 $ref: "#/components/schemas/ErrorDetail"
       tags:
         - fish
+  /delay/{duration}:
+    get:
+      operationId: delay
+      summary: Wait some number of seconds before responding
+      parameters:
+        - description: Duration (seconds)
+          in: path
+          name: duration
+          required: true
+          schema:
+            format: int32
+            type: integer
+            minimum: 0
+            maximum: 30
+      responses:
+        "200":
+          description: Empty
 components:
   schemas:
     CreateFishRequest:

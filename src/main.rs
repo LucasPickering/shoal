@@ -56,6 +56,7 @@ async fn main() -> crate::Result<()> {
         )
         .route("/anything", any(anything))
         .route("/anything/{*path}", any(anything))
+        .route("/delay/{duration}", get(delay))
         .fallback(|| async { Error::NotFound })
         .layer(Extension(store.clone()))
         .layer(TraceLayer::new_for_http());

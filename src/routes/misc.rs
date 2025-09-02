@@ -1,12 +1,13 @@
 use axum::{
     Json,
-    extract::{OriginalUri, Query},
+    extract::{OriginalUri, Path, Query},
     http::{HeaderMap, Method},
 };
 use bytes::Bytes;
 use indexmap::{IndexMap, map::Entry};
 use serde::Serialize;
-use std::mem;
+use std::{mem, time::Duration};
+use tokio::time;
 
 /// A route to capture anything at /anything/*. Accepts any request and returns
 /// a JSON body detailing the request, similar to httpbin.
@@ -46,6 +47,15 @@ pub async fn anything(
         data,
         json,
     })
+}
+
+/// Wait for n seconds before returning
+pub async fn delay(Path(duration): Path<u32>) -> crate::Result<()> {
+    if duration > 30 {
+        todo!();
+    }
+    time::sleep(Duration::from_secs(duration as u64)).await;
+    Ok(())
 }
 
 /// Details about the user's request

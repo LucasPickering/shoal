@@ -6,7 +6,7 @@ _.file = ".env"
 [tasks.dev]
 description = "Run development server"
 run = "cargo run"
-sources = ["Cargo.toml", "Cargo.lock", "src/**"]
+sources = ["Cargo.toml", "Cargo.lock", "src/**", "static/**"]
 
 [tasks.build]
 description = "Build and push Docker image"
