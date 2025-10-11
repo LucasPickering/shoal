@@ -5,9 +5,10 @@ mod data;
 mod error;
 mod routes;
 
-pub use crate::error::{Error, Result};
-
-use crate::data::Store;
+use crate::{
+    data::Store,
+    error::{Error, Result},
+};
 use axum::{
     Extension, Router,
     body::Body,
@@ -17,8 +18,9 @@ use axum::{
 };
 use routes::*;
 use std::{env, time::Duration};
+use tokio::signal::unix::{SignalKind, signal};
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{error, info, warn};
 
 // Include docs so we can ship as a single binary
 const DOCS_HTML: &[u8] = include_bytes!("../static/docs.html");
@@ -32,6 +34,10 @@ async fn main() -> crate::Result<()> {
 
     // Initial an in-memory DB for fish
     let store = Store::new()?;
+
+    // Start background tasks
+    tokio::spawn(reap_sessions(store.clone()));
+    tokio::spawn(listen_for_dump(store.clone()));
 
     // Build our application with routes
     let app = Router::new()
@@ -58,11 +64,8 @@ async fn main() -> crate::Result<()> {
         .route("/anything/{*path}", any(anything))
         .route("/delay/{duration}", get(delay))
         .fallback(|| async { Error::NotFound })
-        .layer(Extension(store.clone()))
+        .layer(Extension(store))
         .layer(TraceLayer::new_for_http());
-
-    // Start a background task to reap expired sessions
-    tokio::spawn(reap_sessions(store));
 
     // Run the server
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1:3000".into());
@@ -84,6 +87,22 @@ async fn reap_sessions(store: Store) {
             Err(error) => tracing::error!(
                 error = &error as &dyn std::error::Error,
                 "Error reaping sessions"
+            ),
+        }
+    }
+}
+
+/// Background task to listen for SIGUSR1, which triggers a database dump
+async fn listen_for_dump(store: Store) -> Result<()> {
+    let mut stream = signal(SignalKind::user_defined1())?;
+    let path = env::current_dir()?.join("shoal.sqlite");
+    loop {
+        stream.recv().await;
+        match store.dump(&path).await {
+            Ok(_) => warn!("Dumped database to {path:?}"),
+            Err(error) => error!(
+                error = &error as &dyn std::error::Error,
+                "Error dumping database"
             ),
         }
     }

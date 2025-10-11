@@ -3,11 +3,6 @@ DEPLOY_DIR = "/shoal"
 DEPLOY_TARGET = "x86_64-unknown-linux-gnu"
 _.file = ".env"
 
-[tasks.dev]
-description = "Run development server"
-run = "cargo run"
-sources = ["Cargo.toml", "Cargo.lock", "src/**", "static/**"]
-
 [tasks.build]
 description = "Build and push Docker image"
 run = [
@@ -24,10 +19,29 @@ run = [
     "docker-compose up -d",
 ]
 
+[tasks.dev]
+description = "Run development server"
+run = "cargo run"
+sources = ["Cargo.toml", "Cargo.lock", "src/**", "static/**"]
+
 [tasks.docker]
 description = "Run docker commands on the server"
 env.DOCKER_HOST = "ssh://{{env.DEPLOY_HOST}}"
 run = ["docker"]
+
+[tasks.dump]
+description = "Dump the deployed database to a file and download it"
+env.DOCKER_HOST = "ssh://{{env.DEPLOY_HOST}}"
+run = [
+    # SIGUSR1 tells the process to dump the DB
+    "docker-compose kill --signal SIGUSR1 shoal",
+    "docker-compose cp shoal:/app/shoal.sqlite .",
+]
+
+[tasks.dump-dev]
+description = "Dump the local development database to a file"
+# SIGUSR1 tells the process to dump the DB
+run = "pkill -30 -f shoal"
 
 [tasks.install]
 description = "Install binary locally"

@@ -10,16 +10,15 @@ repository = "https://github.com/LucasPickering/shoal"
 version = "0.1.0"
 
 [dependencies]
-anyhow = "1.0.99"
 axum = {version = "0.8", features = ["macros"]}
 bytes = "1.10.1"
 indexmap = {version = "2.10.0", features = ["serde"]}
 jiff = {version = "0.2.15", default-features = false, features = ["std"]}
-rusqlite = {version = "0.37.0", default-features = false, features = ["bundled"]}
+rusqlite = { version = "0.37.0", default-features = false, features = ["backup", "bundled"] }
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 thiserror = "2.0.16"
-tokio = {version = "1.0", features = ["full"]}
+tokio = { version = "1.0", features = ["full", "signal"] }
 tower-http = {version = "0.6.6", features = ["trace"]}
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.19", default-features = false, features = ["fmt"]}

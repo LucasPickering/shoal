@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display},
     ops::Deref,
+    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -147,6 +148,13 @@ impl Store {
             )?
             .collect::<Result<_, _>>()?;
         Ok(deleted)
+    }
+
+    /// Dump the database to a file
+    pub async fn dump(&self, path: &Path) -> crate::Result<()> {
+        let conn = self.connection.lock().await;
+        conn.backup("main", path, None)?;
+        Ok(())
     }
 
     /// Is the session in the store and unexpired?
