@@ -77,7 +77,10 @@ async fn reap_sessions(store: Store) {
     loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
         match store.reap_sessions().await {
-            Ok(sessions) => info!(?sessions, "Deleted expired sessions"),
+            Ok(sessions) if !sessions.is_empty() => {
+                info!(?sessions, "Deleted expired sessions")
+            }
+            Ok(_) => {}
             Err(error) => tracing::error!(
                 error = &error as &dyn std::error::Error,
                 "Error reaping sessions"
