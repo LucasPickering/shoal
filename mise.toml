@@ -17,13 +17,17 @@ run = [
 ]
 
 [tasks.deploy]
-depends = ["build"]
 description = "Build release Docker image and deploy it to the server"
 env.DOCKER_HOST = "ssh://{{env.DEPLOY_HOST}}"
 run = [
     "docker-compose pull",
     "docker-compose up -d",
 ]
+
+[tasks.docker]
+description = "Run docker commands on the server"
+env.DOCKER_HOST = "ssh://{{env.DEPLOY_HOST}}"
+run = ["docker"]
 
 [tasks.install]
 description = "Install binary locally"
