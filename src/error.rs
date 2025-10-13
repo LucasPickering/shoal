@@ -13,6 +13,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Any error that can occur within the service
 #[derive(Debug, Error)]
 pub enum Error {
+    /// Authorization header was present but contained something other than
+    /// `Bearer <session>`
+    #[error("Invalid Authorization header. Expected `Bearer <session_id>`")]
+    InvalidAuthorization,
+
     /// I/O error transmitting on the network
     #[error(transparent)]
     Io(#[from] io::Error),
@@ -34,24 +39,35 @@ pub enum Error {
     /// Error accessing the DB
     #[error(transparent)]
     Sqlite(rusqlite::Error),
+
+    /// Mutations not allowed because the user isn't authenticated
+    #[error("Mutations not allowed without an active session")]
+    Unauthenticated,
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let (status_code, detail) = match self {
-            Self::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
-            Self::SessionNotFound { .. } => {
-                (StatusCode::BAD_REQUEST, self.to_string())
+            Self::InvalidAuthorization | Self::SessionNotFound { .. } => {
+                (StatusCode::BAD_REQUEST, None)
             }
+            Self::Unauthenticated => (StatusCode::UNAUTHORIZED, None),
+            Self::NotFound => (StatusCode::NOT_FOUND, None),
             Self::Io(_) | Self::Sqlite(_) => {
                 error!("Internal server error: {self}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error".to_owned(),
+                    Some("Internal server error".to_owned()),
                 )
             }
         };
-        (status_code, Json(ErrorDetail { detail })).into_response()
+        (
+            status_code,
+            Json(ErrorDetail {
+                detail: detail.unwrap_or_else(|| self.to_string()),
+            }),
+        )
+            .into_response()
     }
 }
 

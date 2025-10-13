@@ -5,7 +5,7 @@ use crate::{
 use axum::{
     Extension, RequestPartsExt,
     extract::FromRequestParts,
-    http::request::Parts,
+    http::{header, request::Parts},
     response::{IntoResponse, Response},
 };
 use jiff::Timestamp;
@@ -23,9 +23,6 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tracing::info;
-
-/// User specifies their session ID in this header
-pub const SESSION_ID_HEADER: &str = "Shoal-Session-Id";
 
 /// Default fish defined for all users
 static FISHES: &[StaticFish] = &[
@@ -234,7 +231,7 @@ impl SessionStore {
             VALUES (:session_id, :name, :species, :age, :weight_kg)
             RETURNING *",
             named_params! {
-                ":session_id": self.session_id,
+                ":session_id": self.session_id()?,
                 ":name": body.name,
                 ":species": body.species,
                 ":age": body.age,
@@ -263,7 +260,7 @@ impl SessionStore {
                 weight_kg = coalesce(:weight_kg, weight_kg)
             WHERE session_id = :session_id AND id = :id RETURNING *",
             named_params! {
-                ":session_id": self.session_id,
+                ":session_id": self.session_id()?,
                 ":id": id,
                 ":name": body.name,
                 ":species": body.species,
@@ -282,7 +279,7 @@ impl SessionStore {
         let fish = conn.query_one(
             "DELETE FROM fish WHERE session_id = :session_id AND id = :id
             RETURNING *",
-            named_params! { ":session_id": self.session_id, ":id": id },
+            named_params! { ":session_id": self.session_id()?, ":id": id },
             |row| row.try_into(),
         )?;
         Ok(fish)
@@ -290,6 +287,12 @@ impl SessionStore {
 
     async fn connection(&self) -> impl Deref<Target = Connection> {
         self.store.connection.lock().await
+    }
+
+    /// Get the current session ID for a mutation. Return an error if there is
+    /// no session
+    fn session_id(&self) -> crate::Result<&SessionId> {
+        self.session_id.as_ref().ok_or(Error::Unauthenticated)
     }
 }
 
@@ -306,19 +309,17 @@ impl<S: Send + Sync> FromRequestParts<S> for SessionStore {
         ) -> Result<Option<SessionId>, Error> {
             // Pull the session ID from the auth header. If the header isn't
             // present, it's just an unauthenticated request.
-            let Some(session_id) = &parts.headers.get(SESSION_ID_HEADER) else {
+            let Some(authorization) = &parts.headers.get(header::AUTHORIZATION)
+            else {
                 return Ok(None);
             };
-            // If the session ID isn't valid UTF-8, it's definitely not in the
-            // DB so give a Not Found error
-            let session_id = SessionId(
-                session_id
-                    .to_str()
-                    .map_err(|_| Error::SessionNotFound {
-                        session_id: session_id.as_bytes().to_owned(),
-                    })?
-                    .to_owned(),
-            );
+            let session_id = authorization
+                .to_str()
+                .ok() // Should be valid UTF-8
+                .and_then(|authorization| authorization.strip_prefix("Bearer "))
+                .ok_or(Error::InvalidAuthorization)?;
+
+            let session_id = SessionId(session_id.to_owned());
 
             // Verify the session is in the store
             if store.contains_session(&session_id).await? {
