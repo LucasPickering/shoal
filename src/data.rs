@@ -68,6 +68,7 @@ impl Store {
     pub fn new() -> crate::Result<Self> {
         info!("Opening database");
         let connection = Connection::open_in_memory()?;
+        connection.pragma_update(None, "foreign_keys", "ON")?;
 
         // Initialize the DB
         connection.execute(
